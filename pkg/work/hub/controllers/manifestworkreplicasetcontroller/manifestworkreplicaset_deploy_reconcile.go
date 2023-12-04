@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -58,7 +60,11 @@ func (d *deployReconciler) reconcile(ctx context.Context, mwrSet *workapiv1alpha
 			// Check if ManifestWorkTemplate changes, ManifestWork will need to be updated.
 			newMW := &workv1.ManifestWork{}
 			mw.ObjectMeta.DeepCopyInto(&newMW.ObjectMeta)
-			mwrSet.Spec.ManifestWorkTemplate.DeepCopyInto(&newMW.Spec)
+			newMW.Spec, err = overrideMWSpec(mwrSet.Spec.ManifestWorkTemplate, placementRef.Override)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
 
 			// TODO: Create NeedToApply function by workApplier to check the manifestWork->spec hash value from the cache.
 			if !workapplier.ManifestWorkEqual(newMW, mw) {
@@ -101,7 +107,7 @@ func (d *deployReconciler) reconcile(ctx context.Context, mwrSet *workapiv1alpha
 		// Create ManifestWorks
 		for _, rolloutStatue := range rolloutResult.ClustersToRollout {
 			if rolloutStatue.Status == clusterv1alpha1.ToApply {
-				mw, err := CreateManifestWork(mwrSet, rolloutStatue.ClusterName, placementRef.Name)
+				mw, err := CreateManifestWork(mwrSet, rolloutStatue.ClusterName, placementRef)
 				if err != nil {
 					errs = append(errs, err)
 					continue
@@ -167,6 +173,44 @@ func (d *deployReconciler) reconcile(ctx context.Context, mwrSet *workapiv1alpha
 	}
 
 	return mwrSet, reconcileContinue, utilerrors.NewAggregate(errs)
+}
+
+func overrideMWSpec(spec workv1.ManifestWorkSpec, override *workapiv1alpha1.Override) (workv1.ManifestWorkSpec, error) {
+	var errs []error
+	specCopy := spec.DeepCopy()
+	if override == nil {
+		return *specCopy, nil
+	}
+	for index := range specCopy.Workload.Manifests {
+		obj := &unstructured.Unstructured{}
+		err := obj.UnmarshalJSON(specCopy.Workload.Manifests[index].Raw)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		for _, patch := range override.Merges {
+			patchObj := &unstructured.Unstructured{}
+			err := patchObj.UnmarshalJSON(patch.Raw)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			if patchObj.GroupVersionKind() != obj.GroupVersionKind() {
+				continue
+			}
+			if patchObj.GetName() != obj.GetName() || patchObj.GetNamespace() != obj.GetNamespace() {
+				continue
+			}
+
+			specCopy.Workload.Manifests[index].Raw, err = jsonpatch.MergePatch(specCopy.Workload.Manifests[index].Raw, patch.Raw)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+		}
+	}
+
+	return *specCopy, utilerrors.NewAggregate(errs)
 }
 
 func (d *deployReconciler) clusterRolloutStatusFunc(clusterName string, manifestWork workv1.ManifestWork) (clusterv1alpha1.ClusterRolloutStatus, error) {
@@ -246,9 +290,14 @@ func getCondition(conditionType string, reason string, message string, status me
 	}
 }
 
-func CreateManifestWork(mwrSet *workapiv1alpha1.ManifestWorkReplicaSet, clusterNS string, placementRefName string) (*workv1.ManifestWork, error) {
+func CreateManifestWork(mwrSet *workapiv1alpha1.ManifestWorkReplicaSet, clusterNS string, placementRef workapiv1alpha1.LocalPlacementReference) (*workv1.ManifestWork, error) {
 	if clusterNS == "" {
 		return nil, fmt.Errorf("invalid cluster namespace")
+	}
+
+	spec, err := overrideMWSpec(mwrSet.Spec.ManifestWorkTemplate, placementRef.Override)
+	if err != nil {
+		return nil, err
 	}
 
 	return &workv1.ManifestWork{
@@ -256,9 +305,9 @@ func CreateManifestWork(mwrSet *workapiv1alpha1.ManifestWorkReplicaSet, clusterN
 			Name:      mwrSet.Name,
 			Namespace: clusterNS,
 			Labels: map[string]string{ManifestWorkReplicaSetControllerNameLabelKey: manifestWorkReplicaSetKey(mwrSet),
-				ManifestWorkReplicaSetPlacementNameLabelKey: placementRefName},
+				ManifestWorkReplicaSetPlacementNameLabelKey: placementRef.Name},
 		},
-		Spec: mwrSet.Spec.ManifestWorkTemplate}, nil
+		Spec: spec}, nil
 }
 
 func getAvailableDecisionGroupProgressMessage(groupNum int, existingClsCount int, totalCls int32) string {

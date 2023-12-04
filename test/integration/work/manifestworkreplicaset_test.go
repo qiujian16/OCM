@@ -3,12 +3,14 @@ package work
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -145,6 +147,45 @@ var _ = ginkgo.Describe("ManifestWorkReplicaSet", func() {
 			err = hubWorkClient.WorkV1alpha1().ManifestWorkReplicaSets(namespaceName).Delete(context.TODO(), manifestWorkReplicaSet.Name, metav1.DeleteOptions{})
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			gomega.Eventually(assertWorksByReplicaSet(sets.New[string](), manifestWorkReplicaSet), eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+		})
+
+		ginkgo.It("should override resources based on the placement", func() {
+			manifestWorkReplicaSet, clusterNames, err := generateTestFixture(1)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			gomega.Eventually(func() error {
+				mwrs, err := hubWorkClient.WorkV1alpha1().ManifestWorkReplicaSets(manifestWorkReplicaSet.Namespace).Get(context.TODO(), manifestWorkReplicaSet.Name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				mwrs.Spec.PlacementRefs[0].Override = &workapiv1alpha1.Override{
+					Merges: []workapiv1.Manifest{
+						util.ToManifest(util.NewConfigmap("defaut", cm1, map[string]string{"c": "d"}, nil)),
+					},
+				}
+				_, err = hubWorkClient.WorkV1alpha1().ManifestWorkReplicaSets(manifestWorkReplicaSet.Namespace).Update(context.TODO(), mwrs, metav1.UpdateOptions{})
+				return err
+			}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
+
+			gomega.Eventually(func() error {
+				for name := range clusterNames {
+					mw, err := hubWorkClient.WorkV1().ManifestWorks(name).Get(context.TODO(), manifestWorkReplicaSet.Name, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					manifest := mw.Spec.Workload.Manifests[0]
+					obj := &unstructured.Unstructured{}
+					err = obj.UnmarshalJSON(manifest.Raw)
+					if err != nil {
+						return err
+					}
+
+					if !reflect.DeepEqual(obj.Object["data"], map[string]interface{}{"a": "b", "c": "d"}) {
+						return fmt.Errorf("the data is not overriden, got %v", obj.Object["data"])
+					}
+				}
+				return nil
+			}, eventuallyTimeout, eventuallyInterval).Should(gomega.Succeed())
 		})
 
 		ginkgo.It("status should update when manifestwork status change", func() {

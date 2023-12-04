@@ -34,6 +34,8 @@ require (
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96
 )
 
+replace open-cluster-management.io/api => github.com/qiujian16/api v0.0.0-20231204064548-c6e24bba2a0c
+
 require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect

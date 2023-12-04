@@ -94,6 +94,14 @@ type LocalPlacementReference struct {
 	// +optional
 	// +kubebuilder:default={type: All, all: {progressDeadline: None}}
 	RolloutStrategy cluster.RolloutStrategy `json:"rolloutStrategy"`
+
+	Override *Override `json:"override"`
+}
+
+type Override struct {
+	Type string `json:"type"`
+
+	Merges []work.Manifest `json:"merges"`
 }
 
 // PlacementSummary provides info regards number of clusters and clusterGroups selected by the placement refs.

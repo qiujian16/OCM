@@ -325,6 +325,19 @@ spec:
                       description: Name of the Placement resource in the current namespace
                       minLength: 1
                       type: string
+                    override:
+                      properties:
+                        merges:
+                          items:
+                            description: Manifest represents a resource to be deployed
+                              on managed cluster.
+                            type: object
+                            x-kubernetes-embedded-resource: true
+                            x-kubernetes-preserve-unknown-fields: true
+                          type: array
+                        type:
+                          type: string
+                      type: object
                     rolloutStrategy:
                       default:
                         all:
@@ -341,7 +354,7 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              default: "0"
+                              default: 0
                               description: MaxFailures is a percentage or number of
                                 clusters in the current rollout that can fail before
                                 proceeding to the next rollout. MaxFailures is only
@@ -435,7 +448,7 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              default: "0"
+                              default: 0
                               description: MaxFailures is a percentage or number of
                                 clusters in the current rollout that can fail before
                                 proceeding to the next rollout. MaxFailures is only
@@ -519,7 +532,7 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              default: "0"
+                              default: 0
                               description: MaxFailures is a percentage or number of
                                 clusters in the current rollout that can fail before
                                 proceeding to the next rollout. MaxFailures is only
