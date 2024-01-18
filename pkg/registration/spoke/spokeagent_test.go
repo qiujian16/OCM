@@ -13,8 +13,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
-	commonoptions "open-cluster-management.io/ocm/pkg/common/options"
 	testingcommon "open-cluster-management.io/ocm/pkg/common/testing"
+
+	commonoptions "open-cluster-management.io/ocm/pkg/common/options"
 	"open-cluster-management.io/ocm/pkg/registration/clientcert"
 	testinghelpers "open-cluster-management.io/ocm/pkg/registration/helpers/testing"
 )
