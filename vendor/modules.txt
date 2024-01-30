@@ -1578,7 +1578,7 @@ open-cluster-management.io/api/utils/work/v1/workapplier
 open-cluster-management.io/api/utils/work/v1/workvalidator
 open-cluster-management.io/api/work/v1
 open-cluster-management.io/api/work/v1alpha1
-# open-cluster-management.io/sdk-go v0.0.0-20240129065956-3ff755820797
+# open-cluster-management.io/sdk-go v0.0.0-20240130025514-7385f9baadf0
 ## explicit; go 1.21
 open-cluster-management.io/sdk-go/pkg/apis/cluster/v1alpha1
 open-cluster-management.io/sdk-go/pkg/apis/cluster/v1beta1
@@ -1600,6 +1600,17 @@ open-cluster-management.io/sdk-go/pkg/cloudevents/work/payload
 open-cluster-management.io/sdk-go/pkg/cloudevents/work/utils
 open-cluster-management.io/sdk-go/pkg/cloudevents/work/watcher
 open-cluster-management.io/sdk-go/pkg/patcher
+# sigs.k8s.io/about-api v0.0.0-20230306212818-bee4439972de
+## explicit; go 1.18
+sigs.k8s.io/about-api/pkg/apis/v1alpha1
+sigs.k8s.io/about-api/pkg/generated/clientset/versioned
+sigs.k8s.io/about-api/pkg/generated/clientset/versioned/scheme
+sigs.k8s.io/about-api/pkg/generated/clientset/versioned/typed/apis/v1alpha1
+sigs.k8s.io/about-api/pkg/generated/informers/externalversions
+sigs.k8s.io/about-api/pkg/generated/informers/externalversions/apis
+sigs.k8s.io/about-api/pkg/generated/informers/externalversions/apis/v1alpha1
+sigs.k8s.io/about-api/pkg/generated/informers/externalversions/internalinterfaces
+sigs.k8s.io/about-api/pkg/generated/listers/apis/v1alpha1
 # sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.0
 ## explicit; go 1.20
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client

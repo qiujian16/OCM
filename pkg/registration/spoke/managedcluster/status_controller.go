@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/discovery"
 	corev1informers "k8s.io/client-go/informers/core/v1"
+	aboutv1alpha1informer "sigs.k8s.io/about-api/pkg/generated/informers/externalversions/apis/v1alpha1"
 
 	clientset "open-cluster-management.io/api/client/cluster/clientset/versioned"
 	clusterv1informer "open-cluster-management.io/api/client/cluster/informers/externalversions/cluster/v1"
@@ -46,6 +47,7 @@ func NewManagedClusterStatusController(
 	hubClusterInformer clusterv1informer.ManagedClusterInformer,
 	managedClusterDiscoveryClient discovery.DiscoveryInterface,
 	claimInformer clusterv1alpha1informer.ClusterClaimInformer,
+	propertyInformer aboutv1alpha1informer.ClusterPropertyInformer,
 	nodeInformer corev1informers.NodeInformer,
 	maxCustomClusterClaims int,
 	resyncInterval time.Duration,
@@ -56,13 +58,14 @@ func NewManagedClusterStatusController(
 		hubClusterInformer,
 		managedClusterDiscoveryClient,
 		claimInformer,
+		propertyInformer,
 		nodeInformer,
 		maxCustomClusterClaims,
 		recorder,
 	)
 
 	return factory.New().
-		WithInformers(hubClusterInformer.Informer(), nodeInformer.Informer(), claimInformer.Informer()).
+		WithInformers(hubClusterInformer.Informer(), nodeInformer.Informer(), claimInformer.Informer(), propertyInformer.Informer()).
 		WithSync(c.sync).
 		ResyncEvery(resyncInterval).
 		ToController("ManagedClusterStatusController", recorder)
@@ -74,6 +77,7 @@ func newManagedClusterStatusController(
 	hubClusterInformer clusterv1informer.ManagedClusterInformer,
 	managedClusterDiscoveryClient discovery.DiscoveryInterface,
 	claimInformer clusterv1alpha1informer.ClusterClaimInformer,
+	propertyInformer aboutv1alpha1informer.ClusterPropertyInformer,
 	nodeInformer corev1informers.NodeInformer,
 	maxCustomClusterClaims int,
 	recorder events.Recorder) *managedClusterStatusController {
@@ -84,8 +88,13 @@ func newManagedClusterStatusController(
 			hubClusterClient.ClusterV1().ManagedClusters()),
 		reconcilers: []statusReconcile{
 			&joiningReconcile{recorder: recorder},
-			&resoureReconcile{managedClusterDiscoveryClient: managedClusterDiscoveryClient, nodeLister: nodeInformer.Lister()},
-			&claimReconcile{claimLister: claimInformer.Lister(), recorder: recorder, maxCustomClusterClaims: maxCustomClusterClaims},
+			&resoureReconcile{
+				managedClusterDiscoveryClient: managedClusterDiscoveryClient, nodeLister: nodeInformer.Lister()},
+			&claimReconcile{
+				claimLister:            claimInformer.Lister(),
+				aboutLister:            propertyInformer.Lister(),
+				recorder:               recorder,
+				maxCustomClusterClaims: maxCustomClusterClaims},
 		},
 		hubClusterLister: hubClusterInformer.Lister(),
 	}
